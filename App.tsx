@@ -4,115 +4,82 @@
  *
  * @format
  */
+import React, { useEffect } from 'react';
+import { View } from 'react-native';
 
-import React from 'react';
-import type {PropsWithChildren} from 'react';
-import {
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  useColorScheme,
-  View,
-} from 'react-native';
+import Geolocation from '@react-native-community/geolocation';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import FlashMessage from 'react-native-flash-message';
+import SplashScreen from 'react-native-splash-screen';
+import { useDispatch } from 'react-redux';
+import Routes from './src/navigation/Routes';
+import { setLocation, setUserdata } from './src/redux/reducers/auth';
+import { getItem } from './src/services/apiService';
+import ForegroundHandler from './src/utils/ForegroundHandler';
+import { getLocationName } from './src/utils/locationApi';
+import { notificationListener } from './src/utils/notificationService';
+import { chekLocationPermission } from './src/utils/permisions';
 
-import {
-  Colors,
-  DebugInstructions,
-  Header,
-  LearnMoreLinks,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
+function App(): React.JSX.Element {
+  const dispatch = useDispatch();
+  const queryClient = new QueryClient();
+  useEffect(() => {
+    setTimeout(() => {
+      SplashScreen.hide();
+    }, 1000);
+  }, []);
+  useEffect(()=>{
+(async()=>{
+  await getCurrentLocation();
+})()
+  },[])
 
-type SectionProps = PropsWithChildren<{
-  title: string;
-}>;
+  const getCurrentLocation = async () => {
+    const hasPermission = await chekLocationPermission();
+    if (hasPermission) {
+      try {
+        Geolocation.getCurrentPosition(
+          location => {
+            getLocationName(
+              location.coords.latitude,
+              location?.coords?.longitude,
+            ).then(res => {
+              dispatch(setLocation(res));
+              console.log(res, 'locationlocation');
+            });
+          },
+          error => {
+            console.error('Error getting location:', error.message);
+          },
+          {enableHighAccuracy: true, timeout: 20000, maximumAge: 1000},
+        );
+      } catch (error) {
+        console.error('Error getting location:', error);
+      }
+    } else {
+      console.log('Location permission not granted');
+    }
+  };
+  useEffect(() => {
+    (async () => {
+      const userData = getItem('userData');
+      if (!!userData) {
+        dispatch(setUserdata(userData));
+      }
 
-function Section({children, title}: SectionProps): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
+      notificationListener();
+    })();
+  }, []);
+
   return (
-    <View style={styles.sectionContainer}>
-      <Text
-        style={[
-          styles.sectionTitle,
-          {
-            color: isDarkMode ? Colors.white : Colors.black,
-          },
-        ]}>
-        {title}
-      </Text>
-      <Text
-        style={[
-          styles.sectionDescription,
-          {
-            color: isDarkMode ? Colors.light : Colors.dark,
-          },
-        ]}>
-        {children}
-      </Text>
+    <View style={{flex: 1}}>
+      <QueryClientProvider client={queryClient}>
+        {/* <ForegroundHandler /> */}
+        <Routes />
+      </QueryClientProvider>
+      <FlashMessage position="top" />
     </View>
   );
 }
-
-function App(): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
-
-  const backgroundStyle = {
-    backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
-  };
-
-  return (
-    <SafeAreaView style={backgroundStyle}>
-      <StatusBar
-        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-        backgroundColor={backgroundStyle.backgroundColor}
-      />
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        style={backgroundStyle}>
-        <Header />
-        <View
-          style={{
-            backgroundColor: isDarkMode ? Colors.black : Colors.white,
-          }}>
-          <Section title="Step One">
-            Edit <Text style={styles.highlight}>App.tsx</Text> to change this
-            screen and then come back to see your edits.
-          </Section>
-          <Section title="See Your Changes">
-            <ReloadInstructions />
-          </Section>
-          <Section title="Debug">
-            <DebugInstructions />
-          </Section>
-          <Section title="Learn More">
-            Read the docs to discover what to do next:
-          </Section>
-          <LearnMoreLinks />
-        </View>
-      </ScrollView>
-    </SafeAreaView>
-  );
-}
-
-const styles = StyleSheet.create({
-  sectionContainer: {
-    marginTop: 32,
-    paddingHorizontal: 24,
-  },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-  },
-  sectionDescription: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: '400',
-  },
-  highlight: {
-    fontWeight: '700',
-  },
-});
 
 export default App;
